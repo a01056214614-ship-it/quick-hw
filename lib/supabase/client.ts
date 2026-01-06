@@ -7,10 +7,22 @@ export function createClient() {
     return supabaseClient
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Missing Supabase environment variables. Please check your .env.local file:\n" +
+      "- NEXT_PUBLIC_QUICKSUPABASE_URL\n" +
+      "- NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY\n\n" +
+      "Get these values from: https://supabase.com/dashboard/project/_/settings/api"
+    )
+  }
+
   try {
     supabaseClient = createBrowserClient(
-      process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!,
-      process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         auth: {
           persistSession: false, // localStorage 사용 안 함
@@ -23,23 +35,6 @@ export function createClient() {
     return supabaseClient
   } catch (error) {
     console.error("[v0] Error creating Supabase client:", error)
-
-    try {
-      supabaseClient = createBrowserClient(
-        process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!,
-        process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY!,
-        {
-          auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
-          },
-        },
-      )
-      return supabaseClient
-    } catch (retryError) {
-      console.error("[v0] Retry failed:", retryError)
-      throw retryError
-    }
+    throw error
   }
 }

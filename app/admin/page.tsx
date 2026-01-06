@@ -98,6 +98,33 @@ export default async function AdminDashboard() {
           </Card>
         </div>
 
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <Card className="cursor-pointer hover:bg-accent transition-colors">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <a href="/admin/dispatch" className="block">배차 관리</a>
+              </CardTitle>
+              <CardDescription>배송원 배차</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="cursor-pointer hover:bg-accent transition-colors">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <a href="/admin/settlements" className="block">정산 관리</a>
+              </CardTitle>
+              <CardDescription>배송원 정산</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="cursor-pointer hover:bg-accent transition-colors">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <a href="/admin/accidents" className="block">사고 접수</a>
+              </CardTitle>
+              <CardDescription>사고 관리</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+
         <Tabs defaultValue="deliveries" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="deliveries">배송 관리</TabsTrigger>

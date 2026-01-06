@@ -43,3 +43,6 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "`n❌ 배포 실패" -ForegroundColor Red
 }
 
+
+
+

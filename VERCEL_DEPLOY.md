@@ -46,3 +46,6 @@ vercel env add NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL production
 
 각 명령어 실행 시 값을 입력하세요.
 
+
+
+

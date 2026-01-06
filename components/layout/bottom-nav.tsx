@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Package, Truck, LayoutDashboard, User } from "lucide-react"
+import { Home, Package, Truck, LayoutDashboard, User, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function BottomNav() {
@@ -60,16 +60,30 @@ export function BottomNav() {
           )}
 
           {isDriverRoute && (
-            <Link
-              href="/driver"
-              className={cn(
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
-                pathname === "/driver" ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Truck className="w-5 h-5" />
-              <span className="text-xs">배송 관리</span>
-            </Link>
+            <>
+              <Link
+                href="/driver"
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  pathname === "/driver" ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Truck className="w-5 h-5" />
+                <span className="text-xs">배송 관리</span>
+              </Link>
+              <Link
+                href="/driver/settlements"
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  pathname === "/driver/settlements"
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <DollarSign className="w-5 h-5" />
+                <span className="text-xs">정산</span>
+              </Link>
+            </>
           )}
 
           {isAdminRoute && (

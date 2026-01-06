@@ -161,6 +161,28 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
     updateData.picked_up_at = new Date().toISOString()
   } else if (status === "delivered") {
     updateData.delivered_at = new Date().toISOString()
+    
+    // 배송 완료 시 포인트 적립 및 추천인 보상 처리
+    const { data: delivery } = await supabase.from("deliveries").select("*").eq("id", deliveryId).single()
+    
+    if (delivery && delivery.customer_id) {
+      // 포인트 적립 (배송 완료 시 100포인트)
+      const { earnPoints } = await import("@/lib/actions/points")
+      await earnPoints(delivery.customer_id, 100, "delivery", deliveryId, "배송 완료 포인트")
+      
+      // 첫 배송 완료인지 확인하여 추천인 보상 처리
+      const { data: customerDeliveries } = await supabase
+        .from("deliveries")
+        .select("id")
+        .eq("customer_id", delivery.customer_id)
+        .eq("status", "delivered")
+      
+      if (customerDeliveries && customerDeliveries.length === 1) {
+        // 첫 배송 완료
+        const { processReferralReward } = await import("@/lib/actions/points")
+        await processReferralReward(delivery.customer_id, deliveryId)
+      }
+    }
   }
 
   const { error } = await supabase.from("deliveries").update(updateData).eq("id", deliveryId)
