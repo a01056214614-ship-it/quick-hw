@@ -1,12 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr"
 
-let supabaseClient: ReturnType<typeof createBrowserClient> | null = null
-
 export function createClient() {
-  if (supabaseClient) {
-    return supabaseClient
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY
 
@@ -20,19 +14,9 @@ export function createClient() {
   }
 
   try {
-    supabaseClient = createBrowserClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        auth: {
-          persistSession: false, // localStorage 사용 안 함
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      },
-    )
-
-    return supabaseClient
+    // createBrowserClient는 브라우저에서 쿠키를 자동으로 읽습니다
+    // 별도 설정 없이도 쿠키에서 세션을 읽고 쓸 수 있습니다
+    return createBrowserClient(supabaseUrl, supabaseAnonKey)
   } catch (error) {
     console.error("[v0] Error creating Supabase client:", error)
     throw error

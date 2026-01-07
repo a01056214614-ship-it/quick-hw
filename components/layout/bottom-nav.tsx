@@ -1,19 +1,114 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Package, Truck, LayoutDashboard, User, DollarSign } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { signOut } from "@/lib/actions/auth"
 
 export function BottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const isAuthPage = pathname?.startsWith("/auth")
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    
+    // 현재 세션 확인
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error("BottomNav session check error:", error)
+          setIsAuthenticated(false)
+          setUserRole(null)
+        } else {
+          const authenticated = !!session
+          setIsAuthenticated(authenticated)
+          console.log("BottomNav session check:", authenticated, session?.user?.id)
+          
+          if (session?.user) {
+            // 프로필 정보 가져오기
+            const { data: profile, error: profileError } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", session.user.id)
+              .maybeSingle()
+            
+            if (profileError) {
+              console.error("Profile fetch error:", profileError)
+            } else {
+              setUserRole(profile?.role || null)
+              console.log("User role:", profile?.role)
+            }
+          } else {
+            setUserRole(null)
+          }
+        }
+      } catch (error) {
+        console.error("BottomNav session check exception:", error)
+        setIsAuthenticated(false)
+        setUserRole(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    checkSession()
+
+    // 인증 상태 변경 감지
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+      console.log("BottomNav auth state changed:", _event, !!session)
+      const authenticated = !!session
+      setIsAuthenticated(authenticated)
+      
+      if (session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .maybeSingle()
+          setUserRole(profile?.role || null)
+        } catch (error) {
+          console.error("Profile fetch error in onAuthStateChange:", error)
+          setUserRole(null)
+        }
+      } else {
+        setUserRole(null)
+      }
+      
+      setIsLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   if (isAuthPage) return null
 
   const isCustomerRoute = pathname?.startsWith("/customer")
   const isDriverRoute = pathname?.startsWith("/driver")
   const isAdminRoute = pathname?.startsWith("/admin")
+
+  // 내 정보 링크 결정
+  const getProfileLink = () => {
+    if (!isAuthenticated) return "/auth/login"
+    if (userRole === "customer") return "/customer"
+    if (userRole === "driver") return "/driver"
+    if (userRole === "admin") return "/admin"
+    return "/auth/login"
+  }
+
+  async function handleSignOut() {
+    await signOut()
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
@@ -99,18 +194,38 @@ export function BottomNav() {
             </Link>
           )}
 
-          <Link
-            href="/auth/login"
-            className={cn(
-              "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
-              pathname?.startsWith("/auth")
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs">내 정보</span>
-          </Link>
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-1 px-3 py-2">
+              <User className="w-5 h-5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">...</span>
+            </div>
+          ) : isAuthenticated ? (
+            <form action={handleSignOut} className="flex-1">
+              <button
+                type="submit"
+                className={cn(
+                  "w-full flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="text-xs">로그아웃</span>
+              </button>
+            </form>
+          ) : (
+            <Link
+              href="/auth/login"
+              className={cn(
+                "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                pathname?.startsWith("/auth")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <User className="w-5 h-5" />
+              <span className="text-xs">로그인</span>
+            </Link>
+          )}
         </div>
       </div>
     </nav>

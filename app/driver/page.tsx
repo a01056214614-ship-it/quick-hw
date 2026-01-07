@@ -2,11 +2,13 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, Package, Star, TrendingUp } from "lucide-react"
+import { Package, Star, TrendingUp, History } from "lucide-react"
 import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default async function DriverDashboard() {
   const supabase = await getSupabaseServerClient()
@@ -29,18 +31,19 @@ export default async function DriverDashboard() {
   const { deliveries: available = [] } = await getAvailableDeliveries()
   const { deliveries: assigned = [] } = await getMyAssignedDeliveries()
 
-  // 오늘 수익 계산
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const { data: todayDeliveries } = await supabase
+  // 전체 운행 이력
+  const { data: allDeliveries } = await supabase
     .from("deliveries")
-    .select("driver_fee")
+    .select("id, status, created_at, delivered_at, customer_rating")
     .eq("driver_id", user.id)
-    .eq("status", "delivered")
-    .gte("delivered_at", today.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(20)
 
-  const todayEarnings = todayDeliveries?.reduce((sum, d) => sum + (d.driver_fee || 0), 0) || 0
+  // 사고 발생 여부 확인
+  const { data: accidents } = await supabase
+    .from("accident_reports")
+    .select("id, status, accident_type")
+    .eq("driver_id", user.id)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -69,16 +72,6 @@ export default async function DriverDashboard() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>오늘 수익</CardDescription>
-              <CardTitle className="text-2xl">{todayEarnings.toLocaleString()}원</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
               <CardDescription>진행 중</CardDescription>
               <CardTitle className="text-3xl text-blue-600">{assigned.length}</CardTitle>
             </CardHeader>
@@ -96,13 +89,36 @@ export default async function DriverDashboard() {
               <Package className="h-4 w-4 text-yellow-600" />
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>사고 발생</CardDescription>
+              <CardTitle className="text-3xl text-red-600">{accidents?.length || 0}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Package className="h-4 w-4 text-red-600" />
+            </CardContent>
+          </Card>
         </div>
 
-        <Tabs defaultValue="assigned" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="assigned">진행 중 배송 ({assigned.length})</TabsTrigger>
+        <Tabs defaultValue="available" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="available">대기 중 배송 ({available.length})</TabsTrigger>
+            <TabsTrigger value="assigned">진행 중 배송 ({assigned.length})</TabsTrigger>
+            <TabsTrigger value="history">운행 이력</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="available" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>수락 가능한 배송</CardTitle>
+                <CardDescription>새로운 배송 요청을 확인하고 수락하세요</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AvailableDeliveries deliveries={available} />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="assigned" className="mt-6">
             <Card>
@@ -116,14 +132,48 @@ export default async function DriverDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="available" className="mt-6">
+          <TabsContent value="history" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>수락 가능한 배송</CardTitle>
-                <CardDescription>새로운 배송 요청을 확인하고 수락하세요</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  운행 이력
+                </CardTitle>
+                <CardDescription>최근 운행 내역을 확인하세요</CardDescription>
               </CardHeader>
               <CardContent>
-                <AvailableDeliveries deliveries={available} />
+                {allDeliveries && allDeliveries.length > 0 ? (
+                  <div className="space-y-3">
+                    {allDeliveries.map((delivery) => (
+                      <div key={delivery.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">
+                              {new Date(delivery.created_at).toLocaleDateString("ko-KR")}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              상태: {delivery.status === "delivered" ? "완료" : delivery.status}
+                            </p>
+                            {delivery.customer_rating && (
+                              <p className="text-sm text-yellow-600">
+                                평점: {delivery.customer_rating}점
+                              </p>
+                            )}
+                          </div>
+                          <Link href={`/driver/delivery/${delivery.id}`}>
+                            <Button variant="outline" size="sm">
+                              상세보기
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">운행 이력이 없습니다</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

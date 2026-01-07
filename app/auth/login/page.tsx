@@ -1,11 +1,39 @@
+"use client"
+
 import { signIn } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  async function handleSubmit(formData: FormData) {
+    setError(null)
+    
+    startTransition(async () => {
+      const result = await signIn(formData)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        // 로그인 성공 시 페이지 새로고침하여 세션 상태 업데이트
+        router.refresh()
+        // 잠시 후 리다이렉트 (세션이 설정될 시간 확보)
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
+      }
+    })
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <Card className="w-full max-w-md">
@@ -14,7 +42,14 @@ export default function LoginPage() {
           <CardDescription className="text-center">계정에 로그인하여 서비스를 이용하세요</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={signIn} className="space-y-4">
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <form action={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input id="email" name="email" type="email" placeholder="your@email.com" required />
@@ -23,8 +58,8 @@ export default function LoginPage() {
               <Label htmlFor="password">비밀번호</Label>
               <Input id="password" name="password" type="password" placeholder="••••••••" required />
             </div>
-            <Button type="submit" className="w-full">
-              로그인
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "로그인 중..." : "로그인"}
             </Button>
           </form>
 

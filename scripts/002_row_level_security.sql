@@ -3,6 +3,11 @@
 -- profiles 테이블 RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+-- 사용자는 자신의 프로필 생성 가능 (회원가입 시)
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 -- 사용자는 자신의 프로필만 조회 가능
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
@@ -25,6 +30,10 @@ CREATE POLICY "Admins can view all profiles"
 
 -- driver_info 테이블 RLS
 ALTER TABLE driver_info ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Drivers can insert own info"
+  ON driver_info FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Drivers can view own info"
   ON driver_info FOR SELECT

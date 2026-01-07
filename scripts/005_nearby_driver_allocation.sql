@@ -21,31 +21,30 @@ BEGIN
   RETURN QUERY
   SELECT 
     di.id,
-    u.name,
-    u.phone,
-    di.current_latitude,
-    di.current_longitude,
+    COALESCE(p.full_name, '기사') as driver_name,
+    COALESCE(p.phone, '') as driver_phone,
+    ST_Y(di.current_location::geometry) as current_lat,
+    ST_X(di.current_location::geometry) as current_lng,
     calculate_distance(
       pickup_lat, 
       pickup_lng, 
-      di.current_latitude, 
-      di.current_longitude
-    ) as distance,
-    di.rating,
-    di.total_deliveries
+      ST_Y(di.current_location::geometry), 
+      ST_X(di.current_location::geometry)
+    ) as distance_km,
+    COALESCE(di.rating, 5.0) as rating,
+    COALESCE(di.total_deliveries, 0) as total_deliveries
   FROM driver_info di
-  JOIN auth.users u ON di.id = u.id
+  LEFT JOIN public.profiles p ON di.id = p.id
   WHERE 
     di.is_available = true
-    AND di.current_latitude IS NOT NULL
-    AND di.current_longitude IS NOT NULL
+    AND di.current_location IS NOT NULL
     AND calculate_distance(
       pickup_lat, 
       pickup_lng, 
-      di.current_latitude, 
-      di.current_longitude
+      ST_Y(di.current_location::geometry), 
+      ST_X(di.current_location::geometry)
     ) <= max_distance_km
-  ORDER BY distance ASC
+  ORDER BY distance_km ASC
   LIMIT limit_count;
 END;
 $$ LANGUAGE plpgsql;

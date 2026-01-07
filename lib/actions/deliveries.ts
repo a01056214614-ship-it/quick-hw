@@ -18,6 +18,7 @@ interface CreateDeliveryData {
   deliveryContactPhone: string
   deliveryNotes?: string
 
+  itemType: string
   itemDescription?: string
   itemWeight?: number
   packageSize?: string
@@ -34,31 +35,40 @@ export async function createDelivery(data: CreateDeliveryData) {
     return { error: "인증이 필요합니다" }
   }
 
-  // 거리 계산
-  const { data: distanceData, error: distanceError } = await supabase.rpc("calculate_distance", {
-    lat1: data.pickupLat,
-    lon1: data.pickupLng,
-    lat2: data.deliveryLat,
-    lon2: data.deliveryLng,
-  })
+  // 거리 계산 (하버사인 공식으로 직접 계산, RPC 실패 대비)
+  let distanceKm = 0
+  try {
+    const { data: distanceData, error: distanceError } = await supabase.rpc("calculate_distance", {
+      lat1: data.pickupLat,
+      lon1: data.pickupLng,
+      lat2: data.deliveryLat,
+      lon2: data.deliveryLng,
+    })
 
-  if (distanceError) {
-    return { error: "거리 계산에 실패했습니다" }
+    if (distanceError) {
+      console.warn("RPC 거리 계산 실패, 클라이언트 측 계산으로 대체:", distanceError)
+      // 클라이언트 측 거리 계산 (하버사인 공식)
+      const R = 6371 // 지구 반지름 (km)
+      const dLat = ((data.deliveryLat - data.pickupLat) * Math.PI) / 180
+      const dLng = ((data.deliveryLng - data.pickupLng) * Math.PI) / 180
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((data.pickupLat * Math.PI) / 180) *
+          Math.cos((data.deliveryLat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2)
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      distanceKm = Math.round(R * c * 10) / 10
+    } else {
+      distanceKm = distanceData as number
+    }
+  } catch (error) {
+    console.error("거리 계산 오류:", error)
+    return { error: "거리 계산에 실패했습니다. 위도/경도를 확인해주세요." }
   }
 
-  const distanceKm = distanceData as number
-
-  // 요금 계산
-  const { data: feeData, error: feeError } = await supabase.rpc("calculate_delivery_fee", {
-    distance_km: distanceKm,
-  })
-
-  if (feeError || !feeData || feeData.length === 0) {
-    return { error: "요금 계산에 실패했습니다" }
-  }
-
-  const fees = feeData[0]
-
+  // 요금 계산 제거 - 기사와 고객이 직접 협의
+  // 거리만 저장하고 요금 관련 필드는 null 또는 0으로 설정
   const { data: delivery, error } = await supabase
     .from("deliveries")
     .insert({
@@ -73,15 +83,16 @@ export async function createDelivery(data: CreateDeliveryData) {
       delivery_contact_name: data.deliveryContactName,
       delivery_contact_phone: data.deliveryContactPhone,
       delivery_notes: data.deliveryNotes,
-      item_description: data.itemDescription,
+      item_description: data.itemDescription || data.itemType,
       item_weight: data.itemWeight,
       package_size: data.packageSize,
       distance_km: distanceKm,
-      base_fee: fees.base_fee,
-      distance_fee: fees.distance_fee,
-      total_fee: fees.total_fee,
-      driver_fee: fees.driver_fee,
-      platform_fee: fees.platform_fee,
+      // 요금 관련 필드는 null로 설정 (기사-고객 직접 협의)
+      base_fee: null,
+      distance_fee: null,
+      total_fee: null,
+      driver_fee: null,
+      platform_fee: null,
       status: "pending",
     })
     .select()
@@ -103,6 +114,7 @@ export async function createDelivery(data: CreateDeliveryData) {
     success: true,
     delivery,
     nearbyDriversCount: nearbyDrivers?.length || 0,
+    nearbyDrivers: nearbyDrivers || [],
   }
 }
 
@@ -183,4 +195,49 @@ export async function getNearbyDrivers(pickupLat: number, pickupLng: number) {
   }
 
   return { drivers: data }
+}
+
+export async function requestDriverConnection(deliveryId: string, driverId: string) {
+  const supabase = await getSupabaseServerClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "인증이 필요합니다" }
+  }
+
+  // 배송 요청에 기사 할당 (pending 상태 유지)
+  const { data: delivery, error } = await supabase
+    .from("deliveries")
+    .update({
+      driver_id: driverId,
+      // status는 여전히 pending - 기사가 수락해야 accepted
+    })
+    .eq("id", deliveryId)
+    .eq("customer_id", user.id)
+    .select()
+    .single()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  // 기사에게 알림 전송 (notifications 테이블에 추가)
+  const { error: notificationError } = await supabase.from("notifications").insert({
+    user_id: driverId,
+    delivery_id: deliveryId,
+    title: "새로운 배송 연결 요청",
+    message: `고객으로부터 배송 연결 요청이 들어왔습니다. 거리: ${delivery.distance_km?.toFixed(1) || 0}km`,
+    type: "new_delivery_request",
+  })
+  
+  if (notificationError) {
+    console.error("알림 생성 오류:", notificationError)
+    // 알림 실패해도 요청은 성공으로 처리
+  }
+
+  revalidatePath("/customer")
+  return { success: true, delivery }
 }

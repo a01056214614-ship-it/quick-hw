@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
+import { Footer } from "@/components/layout/footer"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -40,41 +41,13 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  if (typeof localStorage !== 'undefined') {
-                    // 모든 Supabase 관련 키를 찾아서 삭제
-                    var keys = [];
-                    for (var i = 0; i < localStorage.length; i++) {
-                      var key = localStorage.key(i);
-                      if (key && key.startsWith('sb-')) {
-                        keys.push(key);
-                      }
-                    }
-                    // 찾은 키들을 모두 삭제
-                    keys.forEach(function(key) {
-                      try {
-                        localStorage.removeItem(key);
-                      } catch (e) {
-                        // 개별 키 삭제 실패는 무시
-                      }
-                    });
-                  }
-                } catch (e) {
-                  // localStorage 접근 불가시 무시
-                }
-              })();
-            `,
-          }}
-        />
+        {/* Supabase 세션은 쿠키로 관리되므로 localStorage 삭제 스크립트 제거 */}
       </head>
       <body className={`font-sans antialiased`} suppressHydrationWarning>
         <Header />
         <main className="pt-16 pb-16 min-h-screen">{children}</main>
         <BottomNav />
+        <Footer />
         <Analytics />
       </body>
     </html>
