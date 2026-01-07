@@ -89,9 +89,10 @@ export async function createDelivery(data: CreateDeliveryData) {
       package_size: data.packageSize,
       distance_km: distanceKm,
       // 요금 관련 필드는 null로 설정 (기사-고객 직접 협의)
-      base_fee: null,
-      distance_fee: null,
-      total_fee: null,
+      // 스키마에서 base_fee와 total_fee가 nullable로 변경되어야 함
+      base_fee: 0, // 임시로 0 설정 (스키마 수정 후 null로 변경 가능)
+      distance_fee: 0,
+      total_fee: 0, // 임시로 0 설정 (스키마 수정 후 null로 변경 가능)
       driver_fee: null,
       platform_fee: null,
       status: "pending",
