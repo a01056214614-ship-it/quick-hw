@@ -476,12 +476,16 @@ export async function signIn(formData: FormData) {
 
     revalidatePath("/", "layout")
 
-    if (profile.role === "admin") {
-      redirect("/admin")
-    } else if (profile.role === "driver") {
-      redirect("/driver")
-    } else {
-      redirect("/customer")
+    // redirect() 대신 성공 여부와 역할을 반환하여 클라이언트에서 리다이렉트 처리
+    // 서버 사이드 redirect()는 클라이언트 컴포넌트와 충돌할 수 있음
+    if (!profile) {
+      return { error: "프로필 정보를 찾을 수 없습니다." }
+    }
+    
+    return { 
+      success: true, 
+      role: profile.role,
+      redirectTo: profile.role === "admin" ? "/admin" : profile.role === "driver" ? "/driver" : "/customer"
     }
   }
 

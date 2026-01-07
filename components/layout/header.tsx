@@ -17,25 +17,32 @@ export function Header() {
 
   useEffect(() => {
     const supabase = createClient()
+    let mounted = true
     
     // 현재 세션 확인
     const checkSession = async () => {
       try {
-        // getUser()를 사용하여 더 확실하게 세션 확인
-        const { data: { user }, error } = await supabase.auth.getUser()
+        // getSession()을 사용하여 쿠키에서 세션 확인
+        // getUser()는 서버에 요청을 보내므로 getSession()이 더 빠름
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (!mounted) return
+        
         if (error) {
-          console.error("Header user check error:", error)
+          console.error("Header session check error:", error)
           setIsAuthenticated(false)
         } else {
-          const authenticated = !!user
+          const authenticated = !!session
           setIsAuthenticated(authenticated)
-          console.log("Header user check:", authenticated, user?.id)
+          console.log("Header session check:", authenticated, session?.user?.id)
         }
       } catch (error) {
-        console.error("Header user check exception:", error)
+        if (!mounted) return
+        console.error("Header session check exception:", error)
         setIsAuthenticated(false)
       } finally {
-        setIsLoading(false)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     }
     
@@ -45,24 +52,19 @@ export function Header() {
     // 인증 상태 변경 감지
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      if (!mounted) return
+      
       console.log("Header auth state changed:", _event, !!session)
       const authenticated = !!session
       setIsAuthenticated(authenticated)
       setIsLoading(false)
-      
-      // 세션 변경 시 추가 확인
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT" || _event === "TOKEN_REFRESHED") {
-        // 약간의 지연 후 다시 확인하여 확실하게 상태 업데이트
-        setTimeout(async () => {
-          const { data: { user } } = await supabase.auth.getUser()
-          setIsAuthenticated(!!user)
-          setIsLoading(false)
-        }, 100)
-      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function handleSignOut() {

@@ -18,27 +18,30 @@ export function BottomNav() {
 
   useEffect(() => {
     const supabase = createClient()
+    let mounted = true
     
     // 현재 세션 확인
     const checkSession = async () => {
       try {
-        // getUser()를 사용하여 더 확실하게 세션 확인
-        const { data: { user }, error } = await supabase.auth.getUser()
+        // getSession()을 사용하여 쿠키에서 세션 확인
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (!mounted) return
+        
         if (error) {
-          console.error("BottomNav user check error:", error)
+          console.error("BottomNav session check error:", error)
           setIsAuthenticated(false)
           setUserRole(null)
         } else {
-          const authenticated = !!user
+          const authenticated = !!session
           setIsAuthenticated(authenticated)
-          console.log("BottomNav user check:", authenticated, user?.id)
+          console.log("BottomNav session check:", authenticated, session?.user?.id)
           
-          if (user) {
+          if (session?.user) {
             // 프로필 정보 가져오기
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("role")
-              .eq("id", user.id)
+              .eq("id", session.user.id)
               .maybeSingle()
             
             if (profileError) {
@@ -52,11 +55,14 @@ export function BottomNav() {
           }
         }
       } catch (error) {
-        console.error("BottomNav user check exception:", error)
+        if (!mounted) return
+        console.error("BottomNav session check exception:", error)
         setIsAuthenticated(false)
         setUserRole(null)
       } finally {
-        setIsLoading(false)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     }
     
@@ -66,51 +72,39 @@ export function BottomNav() {
     // 인증 상태 변경 감지
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      if (!mounted) return
+      
       console.log("BottomNav auth state changed:", _event, !!session)
       const authenticated = !!session
       setIsAuthenticated(authenticated)
       
       if (session?.user) {
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", session.user.id)
-            .maybeSingle()
-          setUserRole(profile?.role || null)
-        } catch (error) {
-          console.error("Profile fetch error in onAuthStateChange:", error)
-          setUserRole(null)
-        }
+        // 프로필 정보 가져오기
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data: profile, error: profileError }) => {
+            if (!mounted) return
+            if (profileError) {
+              console.error("Profile fetch error in onAuthStateChange:", profileError)
+            } else {
+              setUserRole(profile?.role || null)
+            }
+            setIsLoading(false)
+          })
       } else {
         setUserRole(null)
-      }
-      
-      setIsLoading(false)
-      
-      // 세션 변경 시 추가 확인
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT" || _event === "TOKEN_REFRESHED") {
-        // 약간의 지연 후 다시 확인하여 확실하게 상태 업데이트
-        setTimeout(async () => {
-          const { data: { user } } = await supabase.auth.getUser()
-          setIsAuthenticated(!!user)
-          if (user) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", user.id)
-              .maybeSingle()
-            setUserRole(profile?.role || null)
-          } else {
-            setUserRole(null)
-          }
-          setIsLoading(false)
-        }, 100)
+        setIsLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   if (isAuthPage) return null
