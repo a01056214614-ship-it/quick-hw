@@ -10,10 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Shield, Truck } from "lucide-react"
 import Link from "next/link"
-import { useState, useTransition, useEffect } from "react"
+import { useState, useTransition, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 
-export default function SignUpPage() {
+function SignUpForm() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -183,5 +183,22 @@ export default function SignUpPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">퀵HW 회원가입</CardTitle>
+            <CardDescription className="text-center">로딩 중...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <SignUpForm />
+    </Suspense>
   )
 }

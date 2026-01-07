@@ -2,7 +2,6 @@
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { revalidatePath } from "next/cache"
 
 // 사고 접수 생성
 export async function reportAccident(data: {
