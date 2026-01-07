@@ -248,10 +248,11 @@ export async function updateDriverLocation(lat: number, lng: number, deliveryId?
   }
 
   // driver_info 테이블의 현재 위치 업데이트
+  // PostgreSQL POINT 타입은 (lng,lat) 형식으로 입력해야 함
   const { error: updateError } = await supabase
     .from("driver_info")
     .update({
-      current_location: `POINT(${lng} ${lat})`,
+      current_location: `(${lng},${lat})`,
       current_latitude: lat,
       current_longitude: lng,
     })
@@ -266,7 +267,7 @@ export async function updateDriverLocation(lat: number, lng: number, deliveryId?
     const { error: trackingError } = await supabase.from("delivery_tracking").insert({
       delivery_id: deliveryId,
       driver_id: user.id,
-      location: `POINT(${lng} ${lat})`,
+      location: `(${lng},${lat})`,
     })
 
     if (trackingError) {

@@ -69,17 +69,18 @@ export async function createDelivery(data: CreateDeliveryData) {
 
   // 요금 계산 제거 - 기사와 고객이 직접 협의
   // 거리만 저장하고 요금 관련 필드는 null 또는 0으로 설정
+  // PostgreSQL POINT 타입은 (lng,lat) 형식으로 입력해야 함
   const { data: delivery, error } = await supabase
     .from("deliveries")
     .insert({
       customer_id: user.id,
       pickup_address: data.pickupAddress,
-      pickup_location: `POINT(${data.pickupLng} ${data.pickupLat})`,
+      pickup_location: `(${data.pickupLng},${data.pickupLat})`,
       pickup_contact_name: data.pickupContactName,
       pickup_contact_phone: data.pickupContactPhone,
       pickup_notes: data.pickupNotes,
       delivery_address: data.deliveryAddress,
-      delivery_location: `POINT(${data.deliveryLng} ${data.deliveryLat})`,
+      delivery_location: `(${data.deliveryLng},${data.deliveryLat})`,
       delivery_contact_name: data.deliveryContactName,
       delivery_contact_phone: data.deliveryContactPhone,
       delivery_notes: data.deliveryNotes,
