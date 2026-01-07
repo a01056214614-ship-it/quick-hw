@@ -1,6 +1,9 @@
 -- 가까운 배송원 찾기 및 자동 할당 시스템
 
 -- 가까운 배송원 찾기 함수 (거리순 정렬)
+-- PostGIS 없이 기본 PostgreSQL POINT 타입 사용
+-- POINT 타입: (x, y) = (longitude, latitude)
+-- 인덱스 접근: point[0] = x (longitude), point[1] = y (latitude)
 CREATE OR REPLACE FUNCTION find_nearby_drivers(
   pickup_lat FLOAT,
   pickup_lng FLOAT,
@@ -23,13 +26,13 @@ BEGIN
     di.id,
     COALESCE(p.full_name, '기사') as driver_name,
     COALESCE(p.phone, '') as driver_phone,
-    ST_Y(di.current_location::geometry) as current_lat,
-    ST_X(di.current_location::geometry) as current_lng,
+    (di.current_location)[1] as current_lat,  -- POINT[1] = y (latitude)
+    (di.current_location)[0] as current_lng,  -- POINT[0] = x (longitude)
     calculate_distance(
       pickup_lat, 
       pickup_lng, 
-      ST_Y(di.current_location::geometry), 
-      ST_X(di.current_location::geometry)
+      (di.current_location)[1],  -- latitude
+      (di.current_location)[0]   -- longitude
     ) as distance_km,
     COALESCE(di.rating, 5.0) as rating,
     COALESCE(di.total_deliveries, 0) as total_deliveries
@@ -41,8 +44,8 @@ BEGIN
     AND calculate_distance(
       pickup_lat, 
       pickup_lng, 
-      ST_Y(di.current_location::geometry), 
-      ST_X(di.current_location::geometry)
+      (di.current_location)[1],  -- latitude
+      (di.current_location)[0]   -- longitude
     ) <= max_distance_km
   ORDER BY distance_km ASC
   LIMIT limit_count;
@@ -50,40 +53,41 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 배송 생성 시 가까운 배송원들에게 알림 보내기
+-- PostGIS 없이 기본 PostgreSQL POINT 타입 사용
 CREATE OR REPLACE FUNCTION notify_nearby_drivers()
 RETURNS TRIGGER AS $$
 DECLARE
   nearby_driver RECORD;
-  pickup_coords RECORD;
+  pickup_lat FLOAT;
+  pickup_lng FLOAT;
 BEGIN
   -- 새로운 배송 요청이 생성되고 상태가 pending일 때만 실행
   IF NEW.status = 'pending' AND OLD.id IS NULL THEN
-    -- pickup_location에서 좌표 추출
-    SELECT 
-      ST_Y(NEW.pickup_location::geometry) as lat,
-      ST_X(NEW.pickup_location::geometry) as lng
-    INTO pickup_coords;
+    -- pickup_location에서 좌표 추출 (PostGIS 없이)
+    -- POINT 타입: (x, y) = (longitude, latitude)
+    pickup_lat := (NEW.pickup_location)[1];  -- POINT[1] = y (latitude)
+    pickup_lng := (NEW.pickup_location)[0];  -- POINT[0] = x (longitude)
     
     -- 가까운 배송원들 찾기 (반경 10km 이내)
     FOR nearby_driver IN 
       SELECT * FROM find_nearby_drivers(
-        pickup_coords.lat,
-        pickup_coords.lng,
+        pickup_lat,
+        pickup_lng,
         10.0,
         5
       )
     LOOP
       -- 각 배송원에게 알림 생성
-      PERFORM create_notification(
+      INSERT INTO notifications (user_id, delivery_id, title, message, type)
+      VALUES (
         nearby_driver.driver_id,
         NEW.id,
         '새로운 배송 요청',
         format(
-          '픽업 위치에서 %.1f km 거리에 새로운 배송 요청이 있습니다. 배송료: %s원',
-          nearby_driver.distance_km,
-          NEW.total_fee
+          '픽업 위치에서 %.1f km 거리에 새로운 배송 요청이 있습니다.',
+          nearby_driver.distance_km
         ),
-        'new_delivery'
+        'new_delivery_request'
       );
     END LOOP;
   END IF;
