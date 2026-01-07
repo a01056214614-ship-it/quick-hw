@@ -97,8 +97,7 @@ export async function createDelivery(data: CreateDeliveryData) {
       platform_fee: null,
       status: "pending",
     })
-    .select()
-    .single()
+    .select() 
 
   if (error) {
     return { error: error.message }
@@ -143,7 +142,7 @@ export async function getMyDeliveries() {
 
   return { deliveries: data }
 }
-
+ 
 export async function cancelDelivery(deliveryId: string) {
   const supabase = await getSupabaseServerClient()
 
