@@ -97,7 +97,8 @@ export async function createDelivery(data: CreateDeliveryData) {
       platform_fee: null,
       status: "pending",
     })
-    .select() 
+    .select()
+    .single()
 
   if (error) {
     return { error: error.message }
