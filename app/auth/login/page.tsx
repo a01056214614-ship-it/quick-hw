@@ -24,12 +24,11 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error)
       } else {
-        // 로그인 성공 시 페이지 새로고침하여 세션 상태 업데이트
-        router.refresh()
-        // 잠시 후 리다이렉트 (세션이 설정될 시간 확보)
-        setTimeout(() => {
-          window.location.reload()
-        }, 100)
+        // 로그인 성공 시 세션이 설정될 시간을 확보한 후 리다이렉트
+        // 서버 액션에서 쿠키가 설정되므로 약간의 지연 후 전체 페이지 리로드
+        await new Promise(resolve => setTimeout(resolve, 300))
+        // 전체 페이지 리로드하여 모든 컴포넌트가 새로운 세션 상태를 읽도록 함
+        window.location.href = "/"
       }
     })
   }

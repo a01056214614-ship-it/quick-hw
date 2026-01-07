@@ -21,32 +21,45 @@ export function Header() {
     // 현재 세션 확인
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // getUser()를 사용하여 더 확실하게 세션 확인
+        const { data: { user }, error } = await supabase.auth.getUser()
         if (error) {
-          console.error("Header session check error:", error)
+          console.error("Header user check error:", error)
           setIsAuthenticated(false)
         } else {
-          const authenticated = !!session
+          const authenticated = !!user
           setIsAuthenticated(authenticated)
-          console.log("Header session check:", authenticated, session?.user?.id)
+          console.log("Header user check:", authenticated, user?.id)
         }
       } catch (error) {
-        console.error("Header session check exception:", error)
+        console.error("Header user check exception:", error)
         setIsAuthenticated(false)
       } finally {
         setIsLoading(false)
       }
     }
     
+    // 즉시 세션 확인
     checkSession()
 
     // 인증 상태 변경 감지
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+    } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
       console.log("Header auth state changed:", _event, !!session)
-      setIsAuthenticated(!!session)
+      const authenticated = !!session
+      setIsAuthenticated(authenticated)
       setIsLoading(false)
+      
+      // 세션 변경 시 추가 확인
+      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT" || _event === "TOKEN_REFRESHED") {
+        // 약간의 지연 후 다시 확인하여 확실하게 상태 업데이트
+        setTimeout(async () => {
+          const { data: { user } } = await supabase.auth.getUser()
+          setIsAuthenticated(!!user)
+          setIsLoading(false)
+        }, 100)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -78,21 +91,23 @@ export function Header() {
                 </Button>
               </Link>
             )}
-            {!isLoading && (
-              isAuthenticated ? (
-                <form action={handleSignOut}>
-                  <Button variant="outline" size="sm" type="submit" className="gap-2">
-                    <LogOut className="w-4 h-4" />
-                    <span className="hidden sm:inline">로그아웃</span>
-                  </Button>
-                </form>
-              ) : (
-                <Link href="/auth/login">
-                  <Button variant="outline" size="sm">
-                    로그인
-                  </Button>
-                </Link>
-              )
+            {isLoading ? (
+              <Button variant="outline" size="sm" disabled>
+                <span className="hidden sm:inline">...</span>
+              </Button>
+            ) : isAuthenticated ? (
+              <form action={handleSignOut}>
+                <Button variant="outline" size="sm" type="submit" className="gap-2">
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">로그아웃</span>
+                </Button>
+              </form>
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="outline" size="sm">
+                  로그인
+                </Button>
+              </Link>
             )}
           </nav>
         )}

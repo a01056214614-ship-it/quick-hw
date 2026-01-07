@@ -22,22 +22,23 @@ export function BottomNav() {
     // 현재 세션 확인
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // getUser()를 사용하여 더 확실하게 세션 확인
+        const { data: { user }, error } = await supabase.auth.getUser()
         if (error) {
-          console.error("BottomNav session check error:", error)
+          console.error("BottomNav user check error:", error)
           setIsAuthenticated(false)
           setUserRole(null)
         } else {
-          const authenticated = !!session
+          const authenticated = !!user
           setIsAuthenticated(authenticated)
-          console.log("BottomNav session check:", authenticated, session?.user?.id)
+          console.log("BottomNav user check:", authenticated, user?.id)
           
-          if (session?.user) {
+          if (user) {
             // 프로필 정보 가져오기
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("role")
-              .eq("id", session.user.id)
+              .eq("id", user.id)
               .maybeSingle()
             
             if (profileError) {
@@ -51,7 +52,7 @@ export function BottomNav() {
           }
         }
       } catch (error) {
-        console.error("BottomNav session check exception:", error)
+        console.error("BottomNav user check exception:", error)
         setIsAuthenticated(false)
         setUserRole(null)
       } finally {
@@ -59,6 +60,7 @@ export function BottomNav() {
       }
     }
     
+    // 즉시 세션 확인
     checkSession()
 
     // 인증 상태 변경 감지
@@ -86,6 +88,26 @@ export function BottomNav() {
       }
       
       setIsLoading(false)
+      
+      // 세션 변경 시 추가 확인
+      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT" || _event === "TOKEN_REFRESHED") {
+        // 약간의 지연 후 다시 확인하여 확실하게 상태 업데이트
+        setTimeout(async () => {
+          const { data: { user } } = await supabase.auth.getUser()
+          setIsAuthenticated(!!user)
+          if (user) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .maybeSingle()
+            setUserRole(profile?.role || null)
+          } else {
+            setUserRole(null)
+          }
+          setIsLoading(false)
+        }, 100)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -195,10 +217,16 @@ export function BottomNav() {
           )}
 
           {isLoading ? (
-            <div className="flex flex-col items-center gap-1 px-3 py-2">
-              <User className="w-5 h-5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">...</span>
-            </div>
+            <Link
+              href="/auth/login"
+              className={cn(
+                "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                "text-muted-foreground opacity-50"
+              )}
+            >
+              <User className="w-5 h-5" />
+              <span className="text-xs">로딩...</span>
+            </Link>
           ) : isAuthenticated ? (
             <form action={handleSignOut} className="flex-1">
               <button

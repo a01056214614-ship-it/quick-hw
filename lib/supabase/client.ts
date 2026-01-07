@@ -14,8 +14,8 @@ export function createClient() {
   }
 
   try {
-    // createBrowserClient는 브라우저에서 쿠키를 자동으로 읽습니다
-    // 별도 설정 없이도 쿠키에서 세션을 읽고 쓸 수 있습니다
+    // createBrowserClient는 브라우저에서 쿠키를 자동으로 읽고 씁니다
+    // 세션은 쿠키를 통해 자동으로 관리되므로 별도 설정이 필요 없습니다
     return createBrowserClient(supabaseUrl, supabaseAnonKey)
   } catch (error) {
     console.error("[v0] Error creating Supabase client:", error)
