@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const { toast } = useToast()
   const router = useRouter()
   const [userInteracted, setUserInteracted] = useState(false)
-  const supabaseRef = useRef<any>(null)
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
 
   // 사용자 상호작용 감지 (소리 재생을 위해 필요)
   useEffect(() => {
@@ -41,8 +41,8 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     }
   }, [])
 
-  // 소리 재생 함수 (Web Audio API 사용)
-  const playNotificationSound = () => {
+  // 소리 재생 함수 (Web Audio API 사용) - useCallback으로 메모이제이션
+  const playNotificationSound = useCallback(() => {
     if (!userInteracted) return
 
     try {
@@ -72,7 +72,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     } catch (error) {
       console.error("소리 재생 실패:", error)
     }
-  }
+  }, [userInteracted])
 
   // 실시간 알림 구독
   useEffect(() => {
@@ -188,7 +188,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, toast, router, userInteracted])
+  }, [userId, toast, router, playNotificationSound])
 
   return null // UI는 toast로 표시되므로 렌더링할 것이 없음
 }
