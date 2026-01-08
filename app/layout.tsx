@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
 import { Footer } from "@/components/layout/footer"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -48,6 +49,7 @@ export default function RootLayout({
         <main className="pt-16 pb-16 min-h-screen">{children}</main>
         <BottomNav />
         <Footer />
+        <Toaster />
         <Analytics />
       </body>
     </html>
