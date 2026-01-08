@@ -1,5 +1,32 @@
 -- 가까운 배송원 찾기 및 자동 할당 시스템
 
+-- 거리 계산 함수 (위도/경도를 이용한 하버사인 공식)
+-- 이 함수가 없으면 find_nearby_drivers 함수가 작동하지 않습니다.
+CREATE OR REPLACE FUNCTION calculate_distance(
+  lat1 FLOAT, lon1 FLOAT,
+  lat2 FLOAT, lon2 FLOAT
+)
+RETURNS FLOAT AS $$
+DECLARE
+  earth_radius FLOAT := 6371; -- km
+  dlat FLOAT;
+  dlon FLOAT;
+  a FLOAT;
+  c FLOAT;
+BEGIN
+  dlat := radians(lat2 - lat1);
+  dlon := radians(lon2 - lon1);
+  
+  a := sin(dlat/2) * sin(dlat/2) +
+       cos(radians(lat1)) * cos(radians(lat2)) *
+       sin(dlon/2) * sin(dlon/2);
+  
+  c := 2 * atan2(sqrt(a), sqrt(1-a));
+  
+  RETURN earth_radius * c;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 -- 가까운 배송원 찾기 함수 (거리순 정렬)
 -- PostGIS 없이 기본 PostgreSQL POINT 타입 사용
 -- POINT 타입: (x, y) = (longitude, latitude)
