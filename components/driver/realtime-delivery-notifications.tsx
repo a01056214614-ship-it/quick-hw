@@ -21,6 +21,14 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const router = useRouter()
   const [userInteracted, setUserInteracted] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  const toastRef = useRef(toast)
+  const routerRef = useRef(router)
+
+  // toast와 router의 최신 참조 유지
+  useEffect(() => {
+    toastRef.current = toast
+    routerRef.current = router
+  }, [toast, router])
 
   // 사용자 상호작용 감지 (소리 재생을 위해 필요)
   useEffect(() => {
@@ -115,7 +123,11 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               const notificationId = notification.id
               const deliveryId = notification.delivery_id
 
-              toast({
+              // ref를 통해 최신 toast와 router 사용
+              const currentToast = toastRef.current
+              const currentRouter = routerRef.current
+
+              currentToast({
                 title: "📦 새로운 배송 요청",
                 description: (
                   <div className="space-y-3 mt-2">
@@ -136,7 +148,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                         onClick={async () => {
                           const result = await acceptDelivery(deliveryId)
                           if (result.error) {
-                            toast({
+                            toastRef.current({
                               title: "오류",
                               description: result.error,
                               variant: "destructive",
@@ -148,11 +160,11 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                               .update({ is_read: true })
                               .eq("id", notificationId)
 
-                            toast({
+                            toastRef.current({
                               title: "✅ 배송 수락 완료",
                               description: "배송을 수락했습니다.",
                             })
-                            router.refresh()
+                            routerRef.current.refresh()
                           }
                         }}
                         className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -188,7 +200,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, toast, router, playNotificationSound])
+  }, [userId, playNotificationSound])
 
   return null // UI는 toast로 표시되므로 렌더링할 것이 없음
 }
