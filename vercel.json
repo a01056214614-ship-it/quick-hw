@@ -1,6 +1,8 @@
 {
+  "name": "quick-hw",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "framework": "nextjs"
 }
 
 
