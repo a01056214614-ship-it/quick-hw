@@ -101,21 +101,27 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
           filter: `user_id=eq.${userId}`,
         },
         async (payload) => {
-          const notification = payload.new as DeliveryNotification
+          try {
+            const notification = payload.new as DeliveryNotification
 
-          // 배송 요청 알림만 처리
-          if (
-            (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
-            notification.delivery_id
-          ) {
-            // 배송 정보 가져오기
-            const { data: delivery } = await supabase
-              .from("deliveries")
-              .select("id, pickup_address, delivery_address, distance_km")
-              .eq("id", notification.delivery_id)
-              .single()
+            // 배송 요청 알림만 처리
+            if (
+              (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
+              notification.delivery_id
+            ) {
+              // 배송 정보 가져오기
+              const { data: delivery, error: deliveryError } = await supabase
+                .from("deliveries")
+                .select("id, pickup_address, delivery_address, distance_km")
+                .eq("id", notification.delivery_id)
+                .single()
 
-            if (delivery) {
+              if (deliveryError) {
+                console.error("배송 정보 가져오기 실패:", deliveryError)
+                return
+              }
+
+              if (delivery) {
               // 소리 재생
               playNotificationSound()
 
@@ -193,9 +199,22 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               })
             }
           }
+          } catch (error) {
+            console.error("실시간 알림 처리 오류:", error)
+          }
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("실시간 알림 구독 성공")
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("실시간 알림 채널 오류")
+        } else if (status === "TIMED_OUT") {
+          console.error("실시간 알림 구독 시간 초과")
+        } else if (status === "CLOSED") {
+          console.warn("실시간 알림 채널 닫힘")
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
